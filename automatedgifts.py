@@ -4,7 +4,6 @@ from pynput import keyboard
 import time
 import numpy as np
 import subprocess
-from pynput import keyboard
 
 # ========== Constants ==========
 topleft = [5, 80]
