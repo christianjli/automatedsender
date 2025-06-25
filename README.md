@@ -2,7 +2,7 @@
 
 Automated sender and opener, compatible only with iOS, requires Sequoia with iPhone mirroring
 
-
+Currently, known to be working with iPhone 15 Pro Max
 
 Need to have Hammerspoon, copy lua.txt into ~/.hammerspoon/init.lua
 
