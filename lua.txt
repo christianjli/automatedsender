@@ -1,0 +1,28 @@
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "S", function()
+    -- Click inside the mirroring window at fixed coordinates
+    local clickX, clickY = 100, 100
+    hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseDown, {x=clickX, y=clickY}):post()
+    hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseUp, {x=clickX, y=clickY}):post()
+
+    hs.timer.usleep(200000) -- small delay
+
+    -- Swipe gesture
+    local startX, startY = 300, 500
+    local endX, endY = 100, 500
+    local duration = 1.0
+    local steps = 20
+
+    hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseDown, {x=startX, y=startY}):post()
+
+    for i = 1, steps do
+        local t = i / steps
+        local x = startX + (endX - startX) * t
+        local y = startY + (endY - startY) * t
+        hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseDragged, {x=x, y=y}):post()
+        hs.timer.usleep(duration * 1000000 / steps)
+    end
+
+    hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseUp, {x=endX, y=endY}):post()
+
+    hs.alert.show("Swipe done!")
+end)
