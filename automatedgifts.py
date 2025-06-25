@@ -21,8 +21,11 @@ def on_press(key):
 keyboard.Listener(on_press=on_press).start()
 
 # ========== Utilities ==========
-def click(x, y, delay=0.5):
-    pyautogui.moveTo(x, y, duration=0.1)
+def click(x_percent, y_percent, rect, delay=0.5):
+    x, y, w, h = rect
+    click_x = int(x + w * x_percent)
+    click_y = int(y + h * y_percent)
+    pyautogui.moveTo(click_x, click_y, duration=0.1)
     pyautogui.click()
     time.sleep(delay)
 
@@ -49,19 +52,32 @@ def take_screenshot(x, y, w, h, filename='latest_screen.png'):
     cv2.imwrite(filename, screen)
     return screen
 
-def get_roi_sum(screen, top, bottom, left, right):
-    roi = screen[top:bottom, left:right]
-    return roi.mean(axis=(0, 1)).sum()
+def gift_available(screen):
+    h, w, _ = screen.shape
+    top = int(h * 490 / 710)
+    bottom = int(h * 520 / 710)
+    left = int(w * 20 / 333)
+    right = int(w * 300 / 333)
+    return screen[top:bottom, left:right].mean(axis=(0, 1)).sum() <= GIFT_OPEN_COLOR_THRESHOLD
+
+def send_available(screen):
+    h, w, _ = screen.shape
+    top = int(h * 540 / 710)
+    bottom = int(h * 585 / 710)
+    left = int(w * 45 / 333)
+    right = int(w * 85 / 333)
+    return screen[top:bottom, left:right].mean(axis=(0, 1)).sum() <= GIFT_SEND_COLOR_THRESHOLD
 
 # ========== Setup App ==========
-def setup_app():
-    click(50, 735)   # iPhone mirror focus
-    click(50, 735)   # Profile
-    click(290, 740)  # Sort
-    click(290, 450)  # Random sort
-    click(290, 740)  # Sort again
-    click(290, 630)  # Can open gift
-    click(170, 300)  # First friend
+def setup_app(rect):
+    click(50 / 338, 735 / 790, rect)   # iPhone mirror focus
+    click(50 / 338, 735 / 790, rect)   # Profile
+    click(165 / 338, 70 / 790, rect)  # Friends list
+    click(290 / 338, 740 / 790, rect)  # Sort
+    click(290 / 338, 420 / 790, rect)  # Random sort
+    click(290 / 338, 740 / 790, rect)  # Sort again
+    click(290 / 338, 615 / 790, rect)  # Can open gift
+    click(170 / 338, 270 / 790, rect)  # First friend
     time.sleep(0.5) # Wait to load
 
 # ========== Open All Gifts ==========
@@ -69,47 +85,51 @@ def open_all_gifts(rect):
     print("Opening gifts...")
     while not should_exit:
         screen = take_screenshot(*rect)
-        if get_roi_sum(screen, 490, 520, 20, 300) > GIFT_OPEN_COLOR_THRESHOLD:
+        if not gift_available(screen):
             print("Completed Opening Gifts")
             break
-        click(180, 520, 1)   # Gift
-        click(295, 695, 1)   # Pin
-        click(170, 695, 1)   # Open
-        click(170, 745, 0.5) # Quick exit
+        click(180 / 338, 480 / 790, rect, 1.5)   # Gift
+        click(295 / 338, 680 / 790, rect, 1)   # Pin
+        click(170 / 338, 680 / 790, rect, 1.5)   # Open
+        click(170 / 338, 745 / 790, rect, 0.5) # Quick exit
         trigger_swipe() # Next
         time.sleep(2) # Load
-    click(170, 745) # Exit
+    click(170 / 338, 745 / 790, rect) # Exit
 
 # ========== Send All Gifts ==========
 def send_all_gifts(rect):
     print("Sending gifts...")
-    click(290, 740) # Sort
-    click(290, 685) # Can send gift
-    click(170, 300) # First friend
+    click(290 / 338, 740 / 790, rect) # Sort
+    click(290 / 338, 685 / 790, rect) # Can send gift
+    click(170 / 338, 270 / 790, rect) # First friend
     time.sleep(1.5) # Wait to load
 
     while not should_exit:
         screen = take_screenshot(*rect)
-        if get_roi_sum(screen, 540, 585, 45, 85) > GIFT_SEND_COLOR_THRESHOLD:
+        if gift_available(screen):
+            click(170 / 338, 745 / 790, rect, 0.5) # Exit
+            time.sleep(1)
+            continue
+        if not send_available(screen):
             print("Completed Sending Gifts")
             break
-        click(70, 650, 0.5)   # Send gift
-        click(180, 530, 0.5)  # Pick gift
-        click(170, 695, 0.5)  # Send
-        click(170, 745, 0.5)  # Quick exit
+        click(70 / 338, 630 / 790, rect, 0.5)   # Send gift
+        click(180 / 338, 510 / 790, rect, 0.5)  # Pick gift
+        click(170 / 338, 675 / 790, rect, 1.0)  # Send
+        click(170 / 338, 745 / 790, rect, 0.5)  # Quick exit
         trigger_swipe()
         time.sleep(2)
 
 # ========== Main ==========
 def main():
     rect = get_window_rect(topleft, bottomright)
-    setup_app()
+    setup_app(rect)
     open_all_gifts(rect)
     send_all_gifts(rect)
 
     if not should_exit:
-        click(170, 745, 0.5) # Exit
-        click(170, 745, 0.5)
+        click(170 / 338, 745 / 790, rect, 0.5) # Exit
+        click(170 / 338, 745 / 790, rect, 0.5)
     else:
         print("Quitting")
 
