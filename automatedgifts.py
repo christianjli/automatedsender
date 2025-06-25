@@ -6,17 +6,26 @@ import numpy as np
 import subprocess
 from pynput import keyboard
 
-# Define ESC key handler
+# ========== Constants ==========
+topleft = [5, 80]
+bottomright = [338, 790]
+GIFT_OPEN_COLOR_THRESHOLD = 723
+GIFT_SEND_COLOR_THRESHOLD = 654
+
+# ========== Exit Flag via ESC ==========
 should_exit = False
 def on_press(key):
     global should_exit
     if key == keyboard.Key.esc:
         should_exit = True
         print("\nQuitting Program")
+keyboard.Listener(on_press=on_press).start()
 
-# Start the keyboard listener
-listener = keyboard.Listener(on_press=on_press)
-listener.start()
+# ========== Utilities ==========
+def click(x, y, delay=0.5):
+    pyautogui.moveTo(x, y, duration=0.1)
+    pyautogui.click()
+    time.sleep(delay)
 
 def trigger_swipe():
     # Send Cmd+Option+Ctrl+S key combo to macOS
@@ -30,138 +39,80 @@ def trigger_swipe():
     subprocess.run(['osascript', '-e', applescript])
 
 def get_window_rect(topleft, bottomright):
-    '''Get window coordinates.'''
     x, y = topleft
     w = bottomright[0] - x
     h = bottomright[1] - y
     return x, y, w, h
 
 def take_screenshot(x, y, w, h, filename='latest_screen.png'):
-    '''Take screenshot for image processing.'''
     screenshot = pyautogui.screenshot(region=(x, y, w, h))
     screen = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
     cv2.imwrite(filename, screen)
     return screen
 
-# Use calibrate.py to find window coordinates
-topleft = [5, 80]
-bottomright = [338, 790]
+def get_roi_sum(screen, top, bottom, left, right):
+    roi = screen[top:bottom, left:right]
+    return roi.mean(axis=(0, 1)).sum()
 
-# Get window coordinates
-window_x, window_y, window_w, window_h = get_window_rect(topleft, bottomright)
+# ========== Setup App ==========
+def setup_app():
+    click(50, 735)   # iPhone mirror focus
+    click(50, 735)   # Profile
+    click(290, 740)  # Sort
+    click(290, 450)  # Random sort
+    click(290, 740)  # Sort again
+    click(290, 630)  # Can open gift
+    click(170, 300)  # First friend
+    time.sleep(0.5) # Wait to load
 
-pyautogui.moveTo(50, 735, duration=0.1) # go to profile
-pyautogui.click() # click on iphone mirroring
-time.sleep(0.5)
-pyautogui.click()
+# ========== Open All Gifts ==========
+def open_all_gifts(rect):
+    print("Opening gifts...")
+    while not should_exit:
+        screen = take_screenshot(*rect)
+        if get_roi_sum(screen, 490, 520, 20, 300) > GIFT_OPEN_COLOR_THRESHOLD:
+            print("Completed Opening Gifts")
+            break
+        click(180, 520, 1)   # Gift
+        click(295, 695, 1)   # Pin
+        click(170, 695, 1)   # Open
+        click(170, 745, 0.5) # Quick exit
+        trigger_swipe() # Next
+        time.sleep(2) # Load
+    click(170, 745) # Exit
 
-pyautogui.moveTo(290, 740, duration=0.1) # click on sort order
-time.sleep(0.5)
-pyautogui.click()
+# ========== Send All Gifts ==========
+def send_all_gifts(rect):
+    print("Sending gifts...")
+    click(290, 740) # Sort
+    click(290, 685) # Can send gift
+    click(170, 300) # First friend
+    time.sleep(1.5) # Wait to load
 
-pyautogui.moveTo(290, 450, duration=0.1) # click random so we don't flip order
-time.sleep(0.5)
-pyautogui.click()
-
-pyautogui.moveTo(290, 740, duration=0.1) # click on sort order
-time.sleep(0.5)
-pyautogui.click()
-
-pyautogui.moveTo(290, 630, duration=0.1) # click on can open gift
-time.sleep(0.5)
-pyautogui.click()
-
-pyautogui.moveTo(170, 300, duration=0.1) # click on first friend
-time.sleep(0.5)
-pyautogui.click()
-time.sleep(0.5) # load first friend
-
-opened_all_gifts = False
-while not opened_all_gifts and not should_exit:
-    screen = take_screenshot(window_x, window_y, window_w, window_h)
-    roi = screen[490:520, 20:300]  # Region of interest
-    mean_color = roi.mean(axis=(0, 1))  # Average over rows and columns
-
-    if mean_color.sum() > 723: # determine if a gift can be opened
-        print("Completed Opening Gifts")
-        opened_all_gifts = True
-
-    else:
-        pyautogui.moveTo(180, 520, duration=0.1) # click on gift
-        time.sleep(1)
-        pyautogui.click()
-        time.sleep(1.5)
-
-        pyautogui.moveTo(295, 695, duration=0.1) # click pin
-        time.sleep(1)
-        pyautogui.click()
-
-        pyautogui.moveTo(170, 695, duration=0.1) # click open
-        time.sleep(0.5)
-        pyautogui.click()
-        time.sleep(1)
-
-        pyautogui.moveTo(170, 745, duration=0.1) # quick exit
-        pyautogui.click()
-        time.sleep(0.5)
-
-        trigger_swipe() # swipe to next friend
+    while not should_exit:
+        screen = take_screenshot(*rect)
+        if get_roi_sum(screen, 540, 585, 45, 85) > GIFT_SEND_COLOR_THRESHOLD:
+            print("Completed Sending Gifts")
+            break
+        click(70, 650, 0.5)   # Send gift
+        click(180, 530, 0.5)  # Pick gift
+        click(170, 695, 0.5)  # Send
+        click(170, 745, 0.5)  # Quick exit
+        trigger_swipe()
         time.sleep(2)
 
-pyautogui.moveTo(170, 745, duration=0.1) # quick exit
-pyautogui.click()
-time.sleep(0.5)
+# ========== Main ==========
+def main():
+    rect = get_window_rect(topleft, bottomright)
+    setup_app()
+    open_all_gifts(rect)
+    send_all_gifts(rect)
 
-pyautogui.moveTo(290, 740, duration=0.1) # click on sort order
-time.sleep(0.5)
-pyautogui.click()
-
-pyautogui.moveTo(290, 685, duration=0.1) # click on can open gift
-time.sleep(0.5)
-pyautogui.click()
-
-pyautogui.moveTo(170, 300, duration=0.1) # click on first friend
-time.sleep(0.5)
-pyautogui.click()
-time.sleep(1.5) # load first friend
-
-sent_all_gifts = False
-while not sent_all_gifts and not should_exit:
-    screen = take_screenshot(window_x, window_y, window_w, window_h)
-    roi = screen[540:585, 45:85]  # Region of interest
-    mean_color = roi.mean(axis=(0, 1))  # Average over rows and columns
-
-    if mean_color.sum() > 654:
-        print("Completed Sending Gifts")
-        sent_all_gifts = True
-
+    if not should_exit:
+        click(170, 745, 0.5) # Exit
+        click(170, 745, 0.5)
     else:
-        pyautogui.moveTo(70, 650, duration=0.1) # click on send gift
-        time.sleep(0.5)
-        pyautogui.click()
+        print("Quitting")
 
-        pyautogui.moveTo(180, 530, duration=0.1) # click on gift
-        time.sleep(0.5)
-        pyautogui.click()
-
-        pyautogui.moveTo(170, 695, duration=0.1) # click on send
-        time.sleep(0.5)
-        pyautogui.click()
-        time.sleep(1)
-
-        pyautogui.moveTo(170, 745, duration=0.1) # quick exit
-        pyautogui.click()
-        time.sleep(0.5)
-
-        trigger_swipe() # swipe to next friend
-        time.sleep(2)
-
-if not should_exit:
-    pyautogui.moveTo(170, 745, duration=0.1) # exit
-    pyautogui.click()
-    time.sleep(0.5)
-    pyautogui.click()
-    time.sleep(0.5)
-
-else:
-    print("Quitting")
+if __name__ == "__main__":
+    main()
